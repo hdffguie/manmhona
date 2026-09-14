@@ -10,14 +10,13 @@ os.makedirs("temp_video", exist_ok=True)
 
 def generate_audio(text, index):
     audio_path = f"temp_audio/speech_{index}.mp3"
-    cmd = ["edge-tts", "--voice", "hi-IN-MadhurNeural", "--rate=+15%", "--pitch=+2Hz", "--text", text, "--write-media", audio_path]
+    cmd = ["edge-tts", "--voice", "hi-IN-MadhurNeural", "--rate=+12%", "--pitch=+2Hz", "--text", text, "--write-media", audio_path]
     subprocess.run(cmd, check=True)
     dur_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path]
     return audio_path, float(subprocess.check_output(dur_cmd).decode().strip())
 
 async def inject_effects(page):
     js_code = """
-        // Fake Mouse
         if (!document.getElementById('fake-mouse')) {
             const cursor = document.createElement('div');
             cursor.id = 'fake-mouse';
@@ -31,7 +30,6 @@ async def inject_effects(page):
             document.addEventListener('mousemove', (e) => { cursor.style.left = e.pageX + 'px'; cursor.style.top = e.pageY + 'px'; });
         }
         
-        // Spotlight Background
         if (!document.getElementById('spotlight-overlay')) {
             const overlay = document.createElement('div');
             overlay.id = 'spotlight-overlay';
@@ -45,7 +43,6 @@ async def inject_effects(page):
             document.body.appendChild(overlay);
         }
 
-        // Absolute Red Box Highlighter
         if (!document.getElementById('absolute-highlighter')) {
             const hl = document.createElement('div');
             hl.id = 'absolute-highlighter';
@@ -61,7 +58,6 @@ async def inject_effects(page):
             document.body.appendChild(hl);
         }
 
-        // Click Ripple Effect
         window.showClickRipple = function(x, y) {
             let ripple = document.createElement('div');
             ripple.style.position = 'absolute';
@@ -84,14 +80,14 @@ async def inject_effects(page):
         }
 
         window.shootConfetti = function() {
-            for(let i=0; i<80; i++) {
+            for(let i=0; i<100; i++) {
                 let conf = document.createElement('div');
                 conf.style.position = 'fixed';
                 conf.style.left = Math.random() * 100 + 'vw'; conf.style.top = '-10px';
                 conf.style.width = '12px'; conf.style.height = '12px';
                 conf.style.backgroundColor = ['red','yellow','blue','green','#ff00ff'][Math.floor(Math.random()*5)];
                 conf.style.zIndex = '2147483647';
-                conf.style.transition = 'top 2.5s ease-in, transform 2.5s ease-in';
+                conf.style.transition = 'top 3s ease-in, transform 3s ease-in';
                 document.body.appendChild(conf);
                 setTimeout(() => { conf.style.top = '110vh'; conf.style.transform = 'rotate(' + Math.random()*360 + 'deg)'; }, 50);
             }
@@ -129,6 +125,7 @@ async def main():
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
+        # Timeout badha diya hai taaki lamba session crash na ho
         context = await browser.new_context(
             viewport={'width': 1920, 'height': 1080}, 
             record_video_dir="temp_video/",
@@ -136,6 +133,7 @@ async def main():
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
         )
         page = await context.new_page()
+        page.set_default_timeout(60000) # 60 seconds timeout
         audio_list = []
 
         await page.goto("https://www.google.com", wait_until="domcontentloaded")
@@ -143,7 +141,7 @@ async def main():
 
         for idx, step in enumerate(commands):
             action, selector, text = step.get("action"), step.get("selector", ""), step.get("text", "")
-            print(f"🎬 {action}: {text[:40]}...")
+            print(f"🎬 Step {idx+1}/{len(commands)} - {action}: {text[:40]}...")
             
             audio_path, expected_duration = generate_audio(text, idx)
             audio_list.append(audio_path)
@@ -162,16 +160,20 @@ async def main():
                 await page.mouse.move(960, 500)
 
             elif action == "scroll":
-                await page.evaluate("window.scrollBy({top: 800, behavior: 'smooth'})")
+                await page.evaluate("window.scrollBy({top: 600, behavior: 'smooth'})")
                 await page.mouse.move(1000, 600, steps=10)
+                await asyncio.sleep(0.5)
+                
+            elif action == "scroll_up":
+                await page.evaluate("window.scrollBy({top: -600, behavior: 'smooth'})")
+                await page.mouse.move(900, 300, steps=10)
                 await asyncio.sleep(0.5)
             
             elif action == "highlight":
                 try:
-                    # Finder
                     loc = page.get_by_text(selector, exact=False).first
                     if not await loc.is_visible(timeout=1500):
-                        loc = page.locator("a, button").nth(5) 
+                        loc = page.locator("a, button, h2, h3").nth(5) 
                     
                     await loc.scroll_into_view_if_needed()
                     box = await loc.bounding_box()
@@ -181,7 +183,6 @@ async def main():
                         target_y = box["y"] + box["height"]/2
                         await page.mouse.move(target_x, target_y, steps=15)
                         
-                        # 🚨 ERROR FIXED: Safe JavaScript Evaluation
                         js_highlight = """([box_x, box_y, box_w, box_h, t_x, t_y]) => {
                             document.getElementById('spotlight-overlay').style.display = 'block';
                             let hl = document.getElementById('absolute-highlighter');
@@ -197,7 +198,7 @@ async def main():
                         await page.evaluate(js_highlight, [box["x"], box["y"], box["width"], box["height"], target_x, target_y])
                         
                 except Exception as e:
-                    print("⚠️ Highlighter ekdum fail ho gaya:", e)
+                    print("⚠️ Highlighter Fallback:", e)
 
             elif action == "celebrate":
                 await page.evaluate("window.shootConfetti()")
