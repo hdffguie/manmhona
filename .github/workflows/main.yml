@@ -1,13 +1,16 @@
-name: Auto Website Review Bot
+name: Auto Website Review & YouTube Upload
 
 on:
+  schedule:
+    - cron: '30 22 * * *'  # Subha ki video ke liye (Raat ko chalega)
+    - cron: '30 12 * * *'  # Shaam ki video ke liye (Dopahar me chalega)
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  generate-review:
+  generate-and-upload:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -19,24 +22,30 @@ jobs:
         
     - name: Install Dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        sudo apt-get update -qq
+        sudo apt-get install -y ffmpeg -qq
         pip install -r requirements.txt
         playwright install chromium
         playwright install-deps chromium
 
-    - name: Generate AI Script & JSON Commands
+    - name: 1. Generate AI Script & JSON Commands
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: python auto_script.py
 
-    - name: Bot Screen Recording & Highlighting
+    - name: 2. Bot Screen Recording & Highlighting
       run: python record_browser.py
 
-    - name: Merge Audio and Video
+    - name: 3. Merge Audio and Video
       run: python merge_final.py
 
-    - name: Upload Final Video & AI Script
+    - name: 4. Upload & Schedule on YouTube
+      env:
+        YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: python upload_youtube.py
+      
+    - name: 5. Save Video to GitHub (Backup)
       uses: actions/upload-artifact@v4
       with:
         name: Final-Website-Review
