@@ -7,7 +7,6 @@ def download_bgm():
     bgm_file = "temp_audio/bgm.mp3"
     print("🎵 Background Music Download kar raha hu...")
     try:
-        # User-Agent lagana padta hai warna downloading block ho sakti hai
         req = urllib.request.Request(
             "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
             headers={'User-Agent': 'Mozilla/5.0'}
@@ -20,6 +19,10 @@ def download_bgm():
         return None
 
 def merge():
+    # 🚨 FIX: Yahan folder automatically ban jayega taaki error na aaye!
+    os.makedirs("final_output", exist_ok=True)
+    os.makedirs("temp_audio", exist_ok=True)
+    
     print("✂️ Audio files ko combine kar raha hu...")
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "temp_audio/audio_list.txt", "-c", "copy", "temp_audio/final_voice.mp3"])
     
@@ -35,7 +38,6 @@ def merge():
     print("🎬 Video Export ho rahi hai, kripya pratiksha karein...")
     
     if bgm_file:
-        # BGM volume 0.08 (dhimi awaaz) aur Voice volume 1.5
         cmd = [
             "ffmpeg", "-y", 
             "-i", raw_video, 
@@ -48,7 +50,6 @@ def merge():
             "-shortest", final_output
         ]
     else:
-        # Agar net/server issue se BGM download na ho to sirf Voice lagayega
         cmd = [
             "ffmpeg", "-y", 
             "-i", raw_video, 
