@@ -43,20 +43,25 @@ def generate_review_script(url):
     print("✅ AI 8-Minute Pro-Script Ready!")
 
 if __name__ == "__main__":
-    with open("websites.txt", "r") as f:
-        urls = [line.strip() for line in f.readlines() if line.strip()]
+    with open("websites.txt", "r", encoding="utf-8") as f:
+        raw_content = f.read()
+    
+    # 🚨 BULLETPROOF FIX: Agar saari links ek sath chipak gayi hain, toh unko alag karega!
+    raw_content = raw_content.replace("https://", " \nhttps://").replace("http://", " \nhttp://")
+    urls = [u.strip() for u in raw_content.split() if u.strip().startswith("http")]
     
     if urls:
         current_url = urls[0]
         print(f"🎯 Aaj ka target URL: {current_url}")
         
         # Save current URL for YouTube upload logic later
-        with open("current_url.txt", "w") as f:
+        with open("current_url.txt", "w", encoding="utf-8") as f:
             f.write(current_url)
             
         generate_review_script(current_url)
         
-        with open("websites.txt", "w") as f:
+        # Bachi hui links ko proper line-by-line format me wapas save karna
+        with open("websites.txt", "w", encoding="utf-8") as f:
             if len(urls) > 1:
                 f.write("\n".join(urls[1:]) + "\n")
             else:
