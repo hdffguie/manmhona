@@ -45,7 +45,7 @@ async def inject_effects(page):
             document.body.appendChild(overlay);
         }
 
-        // 🚨 NAYA: Absolute Red Box Highlighter (Jo kabhi fail nahi hoga)
+        // Absolute Red Box Highlighter
         if (!document.getElementById('absolute-highlighter')) {
             const hl = document.createElement('div');
             hl.id = 'absolute-highlighter';
@@ -168,34 +168,33 @@ async def main():
             
             elif action == "highlight":
                 try:
-                    # 🚨 100% BULLETPROOF FINDER
-                    # Pehle text match karega, agar nahi mila to kisi bhi <a> tag ya button ko pakdega
+                    # Finder
                     loc = page.get_by_text(selector, exact=False).first
                     if not await loc.is_visible(timeout=1500):
-                        loc = page.locator("a, button").nth(3) # Fallback random button
+                        loc = page.locator("a, button").nth(5) 
                     
                     await loc.scroll_into_view_if_needed()
                     box = await loc.bounding_box()
                     
                     if box:
-                        # Mouse ko button par le jao
                         target_x = box["x"] + box["width"]/2
                         target_y = box["y"] + box["height"]/2
                         await page.mouse.move(target_x, target_y, steps=15)
                         
-                        # 🚨 Jadu Yaha Hai: Draw absolute box Over the website (kabhi fail nahi hota)
-                        await page.evaluate(f"""() => {{
+                        # 🚨 ERROR FIXED: Safe JavaScript Evaluation
+                        js_highlight = """([box_x, box_y, box_w, box_h, t_x, t_y]) => {
                             document.getElementById('spotlight-overlay').style.display = 'block';
                             let hl = document.getElementById('absolute-highlighter');
-                            hl.style.left = '{box["x"] - 5}px';
-                            hl.style.top = '{box["y"] - 5 + window.scrollY}px';
-                            hl.style.width = '{box["width"] + 10}px';
-                            hl.style.height = '{box["height"] + 10}px';
+                            hl.style.left = (box_x - 5) + 'px';
+                            hl.style.top = (box_y - 5 + window.scrollY) + 'px';
+                            hl.style.width = (box_w + 10) + 'px';
+                            hl.style.height = (box_h + 10) + 'px';
                             hl.style.display = 'block';
                             
-                            // Click Effect Dikhane ke liye
-                            window.showClickRipple({target_x}, {target_y + window.scrollY});
-                        }}""")
+                            window.showClickRipple(t_x, t_y + window.scrollY);
+                        }"""
+                        
+                        await page.evaluate(js_highlight, [box["x"], box["y"], box["width"], box["height"], target_x, target_y])
                         
                 except Exception as e:
                     print("⚠️ Highlighter ekdum fail ho gaya:", e)
