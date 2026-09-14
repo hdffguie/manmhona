@@ -1,0 +1,43 @@
+name: Auto Website Review Bot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-review:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+        pip install -r requirements.txt
+        playwright install chromium
+        playwright install-deps chromium
+
+    - name: Generate AI Script & JSON Commands
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: python auto_script.py
+
+    - name: Bot Screen Recording & Highlighting
+      run: python record_browser.py
+
+    - name: Merge Audio and Video
+      run: python merge_final.py
+
+    - name: Upload Final Video
+      uses: actions/upload-artifact@v4
+      with:
+        name: Final-Website-Review
+        path: final_output/
