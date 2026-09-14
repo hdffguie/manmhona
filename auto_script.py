@@ -32,7 +32,7 @@ def generate_review_script(url):
     """
     
     print("🤖 AI Target Audience dhundh raha hai aur detailed script bana raha hai...")
-    response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+    response = client.models.generate_content(model='gemini-3.6-flash', contents=prompt)
     output = response.text.replace("```json", "").replace("```", "").strip()
     
     with open("bot_commands.json", "w", encoding="utf-8") as f:
