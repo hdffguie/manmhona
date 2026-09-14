@@ -2,8 +2,8 @@ name: Auto Website Review & YouTube Upload
 
 on:
   schedule:
-    - cron: '30 22 * * *'  # Subha ki video ke liye (Raat ko chalega)
-    - cron: '30 12 * * *'  # Shaam ki video ke liye (Dopahar me chalega)
+    - cron: '30 22 * * *'  # Subha 5:27 AM ke liye
+    - cron: '30 12 * * *'  # Shaam 8:26 PM ke liye
   workflow_dispatch:
 
 permissions:
@@ -28,10 +28,18 @@ jobs:
         playwright install chromium
         playwright install-deps chromium
 
-    - name: 1. Generate AI Script & JSON Commands
+    - name: 1. Generate AI Script & Update URL List
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: python auto_script.py
+
+    - name: 1.5 Auto-Update websites.txt on GitHub
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add websites.txt
+        git commit -m "🤖 Bot ne ek URL delete kar diya hai" || echo "No changes to commit"
+        git push
 
     - name: 2. Bot Screen Recording & Highlighting
       run: python record_browser.py
@@ -45,7 +53,7 @@ jobs:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: python upload_youtube.py
       
-    - name: 5. Save Video to GitHub (Backup)
+    - name: 5. Save Video to GitHub Artifacts (Backup)
       uses: actions/upload-artifact@v4
       with:
         name: Final-Website-Review
