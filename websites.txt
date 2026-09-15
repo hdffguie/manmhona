@@ -1,4 +1,3 @@
-https://clickup.com
 https://airtable.com
 https://slack.com
 https://miro.com
