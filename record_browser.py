@@ -10,7 +10,7 @@ os.makedirs("temp_video", exist_ok=True)
 
 def generate_audio(text, index):
     audio_path = f"temp_audio/speech_{index}.mp3"
-    cmd = ["edge-tts", "--voice", "hi-IN-MadhurNeural", "--rate=+12%", "--pitch=+2Hz", "--text", text, "--write-media", audio_path]
+    cmd = ["edge-tts", "--voice", "hi-IN-MadhurNeural", "--rate=+15%", "--pitch=+2Hz", "--text", text, "--write-media", audio_path]
     subprocess.run(cmd, check=True)
     dur_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path]
     return audio_path, float(subprocess.check_output(dur_cmd).decode().strip())
@@ -120,12 +120,21 @@ async def main():
     with open("bot_commands.json", "r", encoding="utf-8") as f:
         commands = json.load(f)
 
-    with open("websites.txt", "r") as f:
-        target_url = f.read().strip()
+    # 🚨 BULLETPROOF URL LOADER (Ye kabhi ek sath poori list nahi padhega)
+    try:
+        with open("current_url.txt", "r", encoding="utf-8") as f:
+            raw_url = f.read().strip()
+            # Double safety: agar galti se multi-links aa gaye toh split karke pehli nikal lo
+            target_url = raw_url.replace("https://", " \nhttps://").replace("http://", " \nhttp://").split()[0].strip()
+    except:
+        # Agar current_url.txt nahi mila, to fallback websites.txt ka pehla link lega
+        with open("websites.txt", "r", encoding="utf-8") as f:
+            target_url = f.read().strip().replace("https://", " \nhttps://").replace("http://", " \nhttp://").split()[0].strip()
+
+    print(f"🌐 Playwright Target URL: {target_url}")
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        # Timeout badha diya hai taaki lamba session crash na ho
         context = await browser.new_context(
             viewport={'width': 1920, 'height': 1080}, 
             record_video_dir="temp_video/",
@@ -133,7 +142,7 @@ async def main():
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
         )
         page = await context.new_page()
-        page.set_default_timeout(60000) # 60 seconds timeout
+        page.set_default_timeout(90000) 
         audio_list = []
 
         await page.goto("https://www.google.com", wait_until="domcontentloaded")
@@ -155,6 +164,7 @@ async def main():
                 await search_box.click()
                 await search_box.type(selector, delay=80) 
                 await asyncio.sleep(0.5)
+                # target_url yaha use hota hai
                 await page.goto(target_url, wait_until="domcontentloaded")
                 await inject_effects(page)
                 await page.mouse.move(960, 500)
@@ -162,18 +172,16 @@ async def main():
             elif action == "scroll":
                 await page.evaluate("window.scrollBy({top: 600, behavior: 'smooth'})")
                 await page.mouse.move(1000, 600, steps=10)
-                await asyncio.sleep(0.5)
                 
             elif action == "scroll_up":
                 await page.evaluate("window.scrollBy({top: -600, behavior: 'smooth'})")
                 await page.mouse.move(900, 300, steps=10)
-                await asyncio.sleep(0.5)
             
             elif action == "highlight":
                 try:
                     loc = page.get_by_text(selector, exact=False).first
                     if not await loc.is_visible(timeout=1500):
-                        loc = page.locator("a, button, h2, h3").nth(5) 
+                        loc = page.locator("a, button, h1, h2").nth(5) 
                     
                     await loc.scroll_into_view_if_needed()
                     box = await loc.bounding_box()
@@ -191,10 +199,8 @@ async def main():
                             hl.style.width = (box_w + 10) + 'px';
                             hl.style.height = (box_h + 10) + 'px';
                             hl.style.display = 'block';
-                            
                             window.showClickRipple(t_x, t_y + window.scrollY);
                         }"""
-                        
                         await page.evaluate(js_highlight, [box["x"], box["y"], box["width"], box["height"], target_x, target_y])
                         
                 except Exception as e:
@@ -207,7 +213,6 @@ async def main():
             if time_to_wait > 0:
                 await asyncio.sleep(time_to_wait) 
 
-            # RESET HIGHLIGHT
             if action == "highlight":
                 await page.evaluate("""() => { 
                     document.getElementById('spotlight-overlay').style.display = 'none';
