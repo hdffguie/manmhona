@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from google import genai
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -35,8 +36,34 @@ def generate_review_script(url):
     """
     
     print("🤖 AI 8-Minute Long Script bana raha hai (Isme thoda time lag sakta hai)...")
-    response = client.models.generate_content(model='gemini-3.6-flash', contents=prompt)
-    output = response.text.replace("```json", "").replace("```", "").strip()
+    
+    # 🚨 BULLETPROOF FIX: Server busy hone par retry karega
+    models_to_try = ['gemini-3.6-flash', 'gemini-1.5-flash']
+    max_retries = 5
+    success = False
+    output = ""
+
+    for attempt in range(max_retries):
+        for model_name in models_to_try:
+            try:
+                print(f"🔄 Trying model: {model_name} (Attempt {attempt+1}/{max_retries})")
+                response = client.models.generate_content(model=model_name, contents=prompt)
+                output = response.text.replace("```json", "").replace("```", "").strip()
+                
+                # Check if output is actually JSON
+                if output.startswith("[") and output.endswith("]"):
+                    success = True
+                    break
+            except Exception as e:
+                print(f"⚠️ Error with {model_name}: API overload. Waiting 5 seconds...")
+                time.sleep(5) # 5 second ruko fir try karo
+                
+        if success:
+            break
+
+    if not success:
+        print("❌ AI API completely overloaded. Baad me try karein.")
+        exit(1)
     
     with open("bot_commands.json", "w", encoding="utf-8") as f:
         f.write(output)
@@ -46,7 +73,6 @@ if __name__ == "__main__":
     with open("websites.txt", "r", encoding="utf-8") as f:
         raw_content = f.read()
     
-    # 🚨 BULLETPROOF FIX: Agar saari links ek sath chipak gayi hain, toh unko alag karega!
     raw_content = raw_content.replace("https://", " \nhttps://").replace("http://", " \nhttp://")
     urls = [u.strip() for u in raw_content.split() if u.strip().startswith("http")]
     
@@ -54,13 +80,11 @@ if __name__ == "__main__":
         current_url = urls[0]
         print(f"🎯 Aaj ka target URL: {current_url}")
         
-        # Save current URL for YouTube upload logic later
         with open("current_url.txt", "w", encoding="utf-8") as f:
             f.write(current_url)
             
         generate_review_script(current_url)
         
-        # Bachi hui links ko proper line-by-line format me wapas save karna
         with open("websites.txt", "w", encoding="utf-8") as f:
             if len(urls) > 1:
                 f.write("\n".join(urls[1:]) + "\n")
