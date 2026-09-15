@@ -1,4 +1,3 @@
-https://monday.com
 https://clickup.com
 https://airtable.com
 https://slack.com
